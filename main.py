@@ -1,4 +1,5 @@
 import json
+import os
 from pprint import pprint
 import csv
 import xmltodict
@@ -17,18 +18,17 @@ OUTPUT = "./outputs/"
 # GRAPHHOPPER_MAP_MATCHING_URL = https://graphhopper.com/api/1/match?vehicle
 
 
-def get_access_token() -> str:
+def set_access_token() -> str:
     """Return access token from file
     """
     with open(CONFIG) as config_file:
         data = json.load(config_file)
-        mapbox_access_token = data["mapbox_token"]
-    return mapbox_access_token
+        os.environ["MAPBOX_ACCESS_TOKEN"] = data["mapbox_token"]
 
 
 def preprocess_osm_data() -> dict:
     """Preprocess OSM data for MapMatching
-    Data manually donwloaded from OSM site:
+    Data manually downloaded from OSM site:
         https://wiki.openstreetmap.org/wiki/Downloading_data
     """
     node_data = []
@@ -50,8 +50,6 @@ def preprocess_osm_data() -> dict:
             way_data.append(temp)
 
     # print(node_headers, "\n", ways_headers)
-    # ppprint(node_data[0])
-    # ppprint(way_data[0])
     return (node_data, way_data)
 
 
@@ -73,12 +71,23 @@ def preprocess_gps_data() -> list:
     return data
 
 
-def mapbox_display_route(gps_data):
+def generate_mapbox_static_maps(data, suffix):
+    """Generates Mapbox static maps given the data
+    The data should be in GeoJSON format
+    """
+    # Remove unrequired values, to keep the data light for map generation
+    del data["properties"]["matchedPoints"]
+    del data["properties"]["indices"]
+    static_map = Static(access_token=os.environ["MAPBOX_ACCESS_TOKEN"])
+    response = static_map.image("mapbox.streets", features=data)
+    # print("StaticMap", response.status_code)
+    save_map_imgs(OUTPUT, suffix, response.content)
+
+
+def mapbox_mapmatching(gps_data):
     """Checks gps correctness using Mapbox MapMatching API
     https://docs.mapbox.com/api/navigation/#map-matching
     """
-    # print(len(gps_data))
-    mapbox_access_token = get_access_token()
 
     # GeoJson for Mapbox API's
     line = dict()
@@ -86,13 +95,13 @@ def mapbox_display_route(gps_data):
     line["properties"] = {"coordTimes": []}
     line["geometry"] = {"type": "LineString", "coordinates": []}
 
-    # Create a clean path using matmatching api
-    map_matcher = MapMatcher(access_token=mapbox_access_token)
+    # Create a verified path using matmatching api
+    map_matcher = MapMatcher(access_token=os.environ["MAPBOX_ACCESS_TOKEN"])
 
     # Select Attributes for displaying the path on static map
     corrected = []
     batch_size = len(gps_data) // 100
-    for i in range(batch_size):
+    for i in range(batch_size + 1):
         st = i * 100
         line["geometry"]["coordinates"] = [
             [float(row["lon"]), float(row["lat"])] for row in gps_data[st : st + 100]
@@ -100,27 +109,24 @@ def mapbox_display_route(gps_data):
         response = map_matcher.match(line, profile="mapbox.driving")
         corr = response.geojson()["features"][0]
         # print("MapMatching", response.status_code)
-        print(
-            i,
-            len(corr["geometry"]["coordinates"]),
-            len(corr["properties"]["matchedPoints"]),
-        )
+        # print(i,len(corr["properties"]["matchedPoints"]))
         corr["geometry"]["coordinates"] = corr["properties"]["matchedPoints"]
-        del corr["properties"]["matchedPoints"]
-        del corr["properties"]["indices"]
+
         corrected.append(corr)
 
         # Plot points on Static Map
-        static_map = Static(access_token=mapbox_access_token)
-        response = static_map.image("mapbox.streets", features=corr)
-        # print('StaticMap', response.status_code)
-        save_map_imgs(OUTPUT, i, response.content)
+        generate_mapbox_static_maps(corr, i)
+
+    save_data(OUTPUT, corrected, "corrected.json")
+    return corrected
 
 
 if __name__ == "__main__":
+
+    set_access_token()
 
     osm_node_data, osm_way_data = preprocess_osm_data()
 
     gps_data = preprocess_gps_data()
 
-    mapbox_display_route(gps_data)
+    mapbox_mapmatching(gps_data)

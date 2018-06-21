@@ -1,4 +1,5 @@
 import time
+import json
 
 
 def epoch_to_utc(timestamp: str) -> str:
@@ -18,6 +19,15 @@ def utc_to_epoch(timestamp: str) -> int:
 def save_map_imgs(output_dir, suffix, data):
     """
     """
-    filename = output_dir + "map" + str(suffix) + ".png"
+    filename = output_dir + "map_" + str(suffix) + "_.png"
     with open(filename, "wb") as output:
         _ = output.write(data)
+
+
+def save_data(output_dir, data, name):
+	"""
+	"""
+	filename = output_dir + name
+	
+	with open(filename, "w+") as outfile:
+		json.dump(data, outfile)
