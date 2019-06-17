@@ -11,6 +11,7 @@ import osrm
 CONFIG = "config.json"
 GPS_FILE = "./data/gps.txt"
 OSM_FILE = "./data/map.osm"
+OUTPUT = "./outputs/"
 # API_MATCHING_URLpip = ""
 # GRAPHHOPPER_MAP_MATCHING_URL = https://graphhopper.com/api/1/match?vehicle
 
@@ -84,7 +85,6 @@ def mapbox_display_route(gps_data):
     # print(len(gps_data))
     mapbox_access_token = get_access_token()
 
-    # pprint(gps_data)
     # GeoJson for Mapbox API's
     line = dict()
     line["type"] = "Feature"
@@ -113,11 +113,11 @@ def mapbox_display_route(gps_data):
         del corr["properties"]["indices"]
         corrected.append(corr)
 
-        # Display path on static map
+        # Display original path on static map
         static_map = Static(access_token=mapbox_access_token)
         response = static_map.image("mapbox.streets", features=line)
         print(response.status_code, response.headers["Content-Type"])
-        filename = "/tmp/map" + str(i) + ".png"
+        filename = OUTPUT + "map" + str(i) + ".png"
         with open(filename, "wb") as output:
             _ = output.write(response.content)
 
@@ -127,8 +127,8 @@ if __name__ == "__main__":
     # osm_data = preprocess_osm_data()
     # print(osm_data[0][0])
     # print(osm_data[1][0])
+
     gps_data = preprocess_gps_data()
-    # print(gps[0])
 
     mapbox_display_route(gps_data)
 
