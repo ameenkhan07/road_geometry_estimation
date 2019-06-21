@@ -1,18 +1,19 @@
-import requests
 import json
+from pprint import pprint
 import csv
 import xmltodict
-import time
-import sys
-from pprint import pprint
+import requests
+from utils import *
 from mapbox import MapMatcher, Static
 import osrm
+from osrm import Point, simple_route
+
 
 CONFIG = "config.json"
 GPS_FILE = "./data/gps.txt"
 OSM_FILE = "./data/map.osm"
 OUTPUT = "./outputs/"
-# API_MATCHING_URLpip = ""
+# API_MATCHING_URL = ""
 # GRAPHHOPPER_MAP_MATCHING_URL = https://graphhopper.com/api/1/match?vehicle
 
 
@@ -37,22 +38,20 @@ def preprocess_osm_data() -> dict:
 
     with open(OSM_FILE) as fd:
         doc = xmltodict.parse(fd.read())
-        # headers = list(doc["osm"]["node"][0].keys())
+        node_headers = list(doc["osm"]["node"][0].keys())
+        ways_headers = list(doc["osm"]["way"][0].keys())
         for row in doc["osm"]["node"]:
             temp = {k.lstrip("@a"): v for k, v in row.items()}
-            # temp["timestamp"] = int(
-            #     time.mktime(time.strptime(row["@timestamp"], pattern))
-            # )
+            # temp["timestamp"] = utc_to_epoch(row["@timestamp"])
             node_data.append(temp)
         for row in doc["osm"]["way"]:
             temp = {k.lstrip("@a"): v for k, v in row.items()}
-            # temp["timestamp"] = int(
-            #     time.mktime(time.strptime(row["@timestamp"], pattern))
-            # )
+            # temp["timestamp"] = utc_to_epoch(row["@timestamp"])
             way_data.append(temp)
 
-    # print(headers)
-    # pprint(data)
+    # print(node_headers, "\n", ways_headers)
+    # ppprint(node_data[0])
+    # ppprint(way_data[0])
     return (node_data, way_data)
 
 
@@ -62,17 +61,12 @@ def preprocess_gps_data() -> list:
     data = []
     # fields = ["timestamp", "lat", "lon"]
     fields = ["lat", "lon"]
-    pattern = "%Y-%m-%dT%H:%M:%SZ"
 
     with open(GPS_FILE, mode="r") as csv_file:
         reader = csv.DictReader(csv_file, delimiter=",")
         for row in reader:
             temp = {k: v for k, v in row.items() if k in fields}
-            # modify epoch to utc datetime
-            # temp["timestamp"] = str(
-            #     time.strftime(pattern, time.gmtime(int(row["timestamp"][:10])))
-            # )
-            # data.append({k: v for k, v in row.items() if k in fields})
+            # temp["timestamp"] = epoch_to_utc(row["timestamp"][:10])
             data.append(temp)
 
     # pprint(data)
@@ -80,7 +74,8 @@ def preprocess_gps_data() -> list:
 
 
 def mapbox_display_route(gps_data):
-    """Checks gps correctness using Mapboc MapMatching API
+    """Checks gps correctness using Mapbox MapMatching API
+    https://docs.mapbox.com/api/navigation/#map-matching
     """
     # print(len(gps_data))
     mapbox_access_token = get_access_token()
@@ -96,13 +91,15 @@ def mapbox_display_route(gps_data):
 
     # Select Attributes for displaying the path on static map
     corrected = []
-    for i in range(len(gps_data) // 100):
+    batch_size = len(gps_data) // 100
+    for i in range(batch_size):
         st = i * 100
         line["geometry"]["coordinates"] = [
             [float(row["lon"]), float(row["lat"])] for row in gps_data[st : st + 100]
         ]
-        resp = map_matcher.match(line, profile="mapbox.driving")
-        corr = resp.geojson()["features"][0]
+        response = map_matcher.match(line, profile="mapbox.driving")
+        corr = response.geojson()["features"][0]
+        # print("MapMatching", response.status_code)
         print(
             i,
             len(corr["geometry"]["coordinates"]),
@@ -113,22 +110,17 @@ def mapbox_display_route(gps_data):
         del corr["properties"]["indices"]
         corrected.append(corr)
 
-        # Display original path on static map
+        # Plot points on Static Map
         static_map = Static(access_token=mapbox_access_token)
-        response = static_map.image("mapbox.streets", features=line)
-        print(response.status_code, response.headers["Content-Type"])
-        filename = OUTPUT + "map" + str(i) + ".png"
-        with open(filename, "wb") as output:
-            _ = output.write(response.content)
+        response = static_map.image("mapbox.streets", features=corr)
+        # print('StaticMap', response.status_code)
+        save_map_imgs(OUTPUT, i, response.content)
 
 
 if __name__ == "__main__":
 
-    # osm_data = preprocess_osm_data()
-    # print(osm_data[0][0])
-    # print(osm_data[1][0])
+    osm_node_data, osm_way_data = preprocess_osm_data()
 
     gps_data = preprocess_gps_data()
 
     mapbox_display_route(gps_data)
-
