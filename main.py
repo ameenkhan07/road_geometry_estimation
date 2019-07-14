@@ -12,9 +12,7 @@ from osrm import Point, simple_route
 
 CONFIG = "config.json"
 GPS_FILE = "./data/gps.txt"
-OSM_FILE = "./data/map.osm"
 OUTPUT = "./outputs/"
-# API_MATCHING_URL = ""
 # GRAPHHOPPER_MAP_MATCHING_URL = https://graphhopper.com/api/1/match?vehicle
 
 
@@ -112,7 +110,7 @@ def mapbox_mapmatching(gps_data):
         # print(i,len(corr["properties"]["matchedPoints"]))
         corr["geometry"]["coordinates"] = corr["properties"]["matchedPoints"]
 
-        corrected.append(corr)
+        corrected.extend(corr["properties"]["matchedPoints"])
 
         # Plot points on Static Map
         generate_mapbox_static_maps(corr, i)
