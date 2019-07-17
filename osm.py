@@ -27,13 +27,15 @@ class OSM_DATA_MODEL:
     def _process_osm_data(self) -> dict:
         """Process the OSM file data to the model
         """
-
-        headers = []
-
+        print("Creating OSM DATA MODEL ...")
         with open(OSM_FILE) as fd:
             doc = xmltodict.parse(fd.read())
             self._format_node_data(doc["osm"]["node"])
             self._format_way_data(doc["osm"]["way"])
+        self.set_node_way_mapping()
+        self.set_highway_node_mapping()
+
+        print("OSM DATA MODEL Created !!!")
 
     def _format_node_data(self, node_data):
         """Formats the "NODE" element of OSM
@@ -41,6 +43,7 @@ class OSM_DATA_MODEL:
         for row in node_data:
             temp = {k.lstrip("@a"): v for k, v in row.items() if k in self.node_fields}
             temp["timestamp"] = utc_to_epoch(row["@timestamp"])
+            temp["lat"], temp["lon"] = float(temp["lat"]), float(temp["lon"])
             if "tag" in temp:
                 if isinstance(temp["tag"], list):
                     temp["tag"] = {t["@k"]: t["@v"] for t in temp["tag"]}
@@ -66,7 +69,8 @@ class OSM_DATA_MODEL:
             self.way_data.append(temp)
 
     def set_node_way_mapping(self):
-        """Generates a node_id->way_id mapping
+        """Generates a node_id->way_id mapping, where a node_id can
+        belong to multiple way_id
         Return: None, stores the mapping to the data model
         """
         for way in self.way_data:
@@ -74,7 +78,7 @@ class OSM_DATA_MODEL:
                 self.node_way_mapping[n_id].append(way["id"])
 
     def set_highway_node_mapping(self):
-        """Create a list of nodes belonging to drivable highways
+        """Create a set of nodes belonging to drivable highways
             https://wiki.openstreetmap.org/wiki/Key:highway
         """
         exclude_highway_types = [
