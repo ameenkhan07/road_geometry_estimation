@@ -2,6 +2,7 @@ import json
 import os
 from pprint import pprint
 import csv
+import requests
 from utils import *
 from osm import OSM_DATA_MODEL
 from mapbox import MapMatcher, Static
@@ -52,9 +53,30 @@ def generate_mapbox_static_maps(data, suffix):
     save_map_imgs(OUTPUT, suffix, response.content)
 
 
-def mapbox_mapmatching(gps_data):
+def map_match_mapbox(gps_data):
+    """
+    """
+    MAPBOX_API = "https://api.mapbox.com/matching/v5/mapbox/driving"
+    params = {"access_token": os.environ["MAPBOX_ACCESS_TOKEN"]}
+    batch_size = len(gps_data) // 100
+    map_matched = []
+    for i in range(batch_size + 1):
+        st = i * 100
+        payload = {
+            "coordinates": ";".join(
+                [str(row["lon"] + "," + row["lat"]) for row in gps_data[st : st + 100]]
+            )
+        }
+        resp = requests.request("POST", MAPBOX_API, data=payload, params=params)
+        resp = resp.json()
+        corr = []
+        map_matched.extend([tp["location"] for tp in resp["tracepoints"]])
+    save_data(OUTPUT, map_matched, "corrected.json")
+
+
+def map_match_mapbox_v4(gps_data):
     """Checks gps correctness using Mapbox MapMatching API
-    https://docs.mapbox.com/api/navigation/#map-matching
+    https://docs.mapbox.com/api/legacy/map-matching-v4/
     """
 
     # GeoJson for Mapbox API's
@@ -79,17 +101,17 @@ def mapbox_mapmatching(gps_data):
         # print("MapMatching", response.status_code)
         # print(i,len(corr["properties"]["matchedPoints"]))
         corr["geometry"]["coordinates"] = corr["properties"]["matchedPoints"]
-
-        corrected.extend(corr["properties"]["matchedPoints"])
+        # pprint(corr)
+        corrected.extend(corr["geometry"]["coordinates"])
 
         # Plot points on Static Map
-        generate_mapbox_static_maps(corr, i)
+        # generate_mapbox_static_maps(corr, i)
 
-    save_data(OUTPUT, corrected, "corrected.json")
+    save_data(OUTPUT, corrected, "corrected_v4.json")
     return corrected
 
 
-def gps_set(gps_coord, osm_coord):
+def _format_map_matched_data():
     """
     """
     pass
@@ -101,7 +123,7 @@ if __name__ == "__main__":
     osm_data = OSM_DATA_MODEL()
 
     gps_data = preprocess_gps_data()
+    # matched_gp_data = map_match_mapbox_v4(gps_data)
+    matched_gps_data = map_match_mapbox(gps_data)
 
-    corrected = mapbox_mapmatching(gps_data)
-    print(len(corrected))
     # gps_set(corrected)
