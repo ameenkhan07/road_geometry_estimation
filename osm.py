@@ -1,6 +1,7 @@
 import xmltodict
-from utils import *
 from collections import *
+from pprint import pprint
+from utils import *
 
 OSM_FILE = "./data/map.osm"
 
@@ -19,6 +20,7 @@ class OSM_DATA_MODEL:
         self.fields = ["@lat", "@lon", "@id", "nd"]
         self.node_tags = set()
         self.way_tags = set()
+        self.node_way_mapping = defaultdict(list)
         self._process_osm_data()
 
     def _process_osm_data(self) -> dict:
@@ -62,13 +64,19 @@ class OSM_DATA_MODEL:
                 self.way_tags.update(temp["tag"].keys())
             self.way_data.append(temp)
 
+    def set_node_way_mapping(self):
+        """Generates a node_id->way_id mapping
+        Return: None, stores the mapping to the data model
         """
+        for way in self.way_data:
+            for n_id in way["node_id"]:
+                self.node_way_mapping[n_id].append(way["id"])
 
 
 
 if __name__ == "__main__":
 
     osm = OSM_DATA_MODEL()
-    # pprint(osm.node_data[:100])
-    pprint(osm.way_data[:10])
-    # print(osm.way_tags)
+    # pprint(osm.node_data[:10])
+    # pprint(sm.way_data[:10])
+    osm.set_node_way_mapping()
