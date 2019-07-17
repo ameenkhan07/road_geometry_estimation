@@ -2,13 +2,10 @@ import json
 import os
 from pprint import pprint
 import csv
-import xmltodict
-import requests
 from utils import *
+from osm import OSM_DATA_MODEL
 from mapbox import MapMatcher, Static
-import osrm
-from osrm import Point, simple_route
-
+import geopy
 
 CONFIG = "config.json"
 GPS_FILE = "./data/gps.txt"
@@ -22,33 +19,6 @@ def set_access_token() -> str:
     with open(CONFIG) as config_file:
         data = json.load(config_file)
         os.environ["MAPBOX_ACCESS_TOKEN"] = data["mapbox_token"]
-
-
-def preprocess_osm_data() -> dict:
-    """Preprocess OSM data for MapMatching
-    Data manually downloaded from OSM site:
-        https://wiki.openstreetmap.org/wiki/Downloading_data
-    """
-    node_data = []
-    way_data = []
-    fields = ["@lat", "@lon", "@timestamp"]
-    headers = []
-
-    with open(OSM_FILE) as fd:
-        doc = xmltodict.parse(fd.read())
-        node_headers = list(doc["osm"]["node"][0].keys())
-        ways_headers = list(doc["osm"]["way"][0].keys())
-        for row in doc["osm"]["node"]:
-            temp = {k.lstrip("@a"): v for k, v in row.items()}
-            # temp["timestamp"] = utc_to_epoch(row["@timestamp"])
-            node_data.append(temp)
-        for row in doc["osm"]["way"]:
-            temp = {k.lstrip("@a"): v for k, v in row.items()}
-            # temp["timestamp"] = utc_to_epoch(row["@timestamp"])
-            way_data.append(temp)
-
-    # print(node_headers, "\n", ways_headers)
-    return (node_data, way_data)
 
 
 def preprocess_gps_data() -> list:
@@ -119,12 +89,19 @@ def mapbox_mapmatching(gps_data):
     return corrected
 
 
+def gps_set(gps_coord, osm_coord):
+    """
+    """
+    pass
+
+
 if __name__ == "__main__":
 
     set_access_token()
-
-    osm_node_data, osm_way_data = preprocess_osm_data()
+    osm_data = OSM_DATA_MODEL()
 
     gps_data = preprocess_gps_data()
 
-    mapbox_mapmatching(gps_data)
+    corrected = mapbox_mapmatching(gps_data)
+    print(len(corrected))
+    # gps_set(corrected)

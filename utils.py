@@ -25,9 +25,8 @@ def save_map_imgs(output_dir, suffix, data):
 
 
 def save_data(output_dir, data, name):
-	"""
-	"""
-	filename = output_dir + name
-	
-	with open(filename, "w+") as outfile:
-		json.dump(data, outfile)
+    """
+    """
+    filename = output_dir + name
+    with open(filename, "w+") as outfile:
+        json.dump(data, outfile)
