@@ -20,6 +20,7 @@ class OSM_DATA_MODEL:
         self.fields = ["@lat", "@lon", "@id", "nd"]
         self.node_tags = set()
         self.way_tags = set()
+        self.highway_nodes = set()
         self.node_way_mapping = defaultdict(list)
         self._process_osm_data()
 
@@ -72,6 +73,27 @@ class OSM_DATA_MODEL:
             for n_id in way["node_id"]:
                 self.node_way_mapping[n_id].append(way["id"])
 
+    def set_highway_node_mapping(self):
+        """Create a list of nodes belonging to drivable highways
+            https://wiki.openstreetmap.org/wiki/Key:highway
+        """
+        exclude_highway_types = [
+            "pedestrian",
+            "track",
+            "footway",
+            "bridleway",
+            "steps",
+            "path",
+            "elevator",
+            "cycleway",
+        ]
+        for way in self.way_data:
+            if (
+                "tag" in way.keys()
+                and "highway" in way["tag"].keys()
+                and way["tag"]["highway"] not in exclude_highway_types
+            ):
+                self.highway_nodes.update(way["node_id"])
 
 
 if __name__ == "__main__":
@@ -80,3 +102,4 @@ if __name__ == "__main__":
     # pprint(osm.node_data[:10])
     # pprint(sm.way_data[:10])
     osm.set_node_way_mapping()
+    osm.set_highway_node_mapping()
