@@ -3,10 +3,11 @@ import os
 from pprint import pprint
 import csv
 import requests
+from tqdm import tqdm
+import geopy.distance
+from mapbox import MapMatcher, Static
 from utils import *
 from osm import OSM_DATA_MODEL
-from mapbox import MapMatcher, Static
-import geopy
 
 CONFIG = "config.json"
 GPS_FILE = "./data/gps.txt"
@@ -72,6 +73,8 @@ def map_match_mapbox(gps_data):
         corr = []
         map_matched.extend([tp["location"] for tp in resp["tracepoints"]])
     save_data(OUTPUT, map_matched, "corrected.json")
+    return [{"lon": pt[0], "lat": pt[1]} for pt in map_matched]
+    # return map_matched
 
 
 def map_match_mapbox_v4(gps_data):
@@ -111,10 +114,31 @@ def map_match_mapbox_v4(gps_data):
     return corrected
 
 
-def _format_map_matched_data():
+def get_gps_osm_coord_mapping(matched_gps_data, osm_data):
     """
     """
-    pass
+    compatible_coords = []
+    for gps_coord in tqdm(matched_gps_data):
+        MIN_DIST, MIN_ID = float("inf"), 0
+        for osm_coord in osm_data.node_data:
+            if osm_coord["id"] in osm_data.highway_nodes:
+                coords_1 = (gps_coord["lat"], gps_coord["lon"])
+                coords_2 = (osm_coord["lat"], osm_coord["lon"])
+                dist = geopy.distance.distance(coords_1, coords_2).meters
+                if dist < MIN_DIST:
+                    MIN_DIST, MIN_ID = dist, osm_coord["id"]
+        if MIN_DIST < 10:
+            compatible_coords.append(
+                {
+                    "osm_node_id": MIN_ID,
+                    "osm_distance": MIN_DIST,
+                    "lat": gps_coord["lat"],
+                    "lon": gps_coord["lon"],
+                }
+            )
+
+    print("Compatible COORDINATES : ", len(compatible_coords))
+    save_data(OUTPUT, compatible_coords, "compatible_coords.json")
 
 
 if __name__ == "__main__":
@@ -125,5 +149,8 @@ if __name__ == "__main__":
     gps_data = preprocess_gps_data()
     # matched_gp_data = map_match_mapbox_v4(gps_data)
     matched_gps_data = map_match_mapbox(gps_data)
+    # pprint(matched_gps_data[:1])
+    # pprint(osm_data.node_data[:1])
 
-    # gps_set(corrected)
+    # Map OSM Metadata to GPS DATA
+    get_gps_osm_coord_mapping(matched_gps_data, osm_data)
