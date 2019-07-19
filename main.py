@@ -114,28 +114,32 @@ def map_match_mapbox_v4(gps_data):
     return corrected
 
 
-def get_gps_osm_coord_mapping(matched_gps_data, osm_data):
+def get_gps_osm_mapping(matched_gps_data, osm_data):
     """
     """
-    compatible_coords = []
+    tagged_coords = []
     for gps_coord in tqdm(matched_gps_data):
-        MIN_DIST, MIN_ID = float("inf"), 0
+        MIN_DIST, MIN_ID = 20, 0
+        min_dict = {}
         for osm_coord in osm_data.node_data:
             if osm_coord["id"] in osm_data.highway_nodes:
                 coords_1 = (gps_coord["lat"], gps_coord["lon"])
                 coords_2 = (osm_coord["lat"], osm_coord["lon"])
                 dist = geopy.distance.distance(coords_1, coords_2).meters
                 if dist < MIN_DIST:
-                    MIN_DIST, MIN_ID = dist, osm_coord["id"]
-        if MIN_DIST < 10:
-            compatible_coords.append(
+                    min_dict[osm_coord["id"]] = dist
+        if min_dict:
+            tagged_coords.append(
                 {
-                    "osm_node_id": MIN_ID,
-                    "osm_distance": MIN_DIST,
+                    "osm_node_ids": min_dict,
                     "lat": gps_coord["lat"],
                     "lon": gps_coord["lon"],
                 }
             )
+
+    print("TAGGED COORDINATES : ", len(tagged_coords))
+    save_data(OUTPUT, tagged_coords, "tagged_coords.json")
+    return tagged_coords
 
     print("Compatible COORDINATES : ", len(compatible_coords))
     save_data(OUTPUT, compatible_coords, "compatible_coords.json")
@@ -152,5 +156,5 @@ if __name__ == "__main__":
     # pprint(matched_gps_data[:1])
     # pprint(osm_data.node_data[:1])
 
-    # Map OSM Metadata to GPS DATA
-    get_gps_osm_coord_mapping(matched_gps_data, osm_data)
+    # Tag the GPS coords with osm nodes, ie map gps coords with osm nodes
+    tagged_coords = get_gps_osm_mapping(matched_gps_data, osm_data)
