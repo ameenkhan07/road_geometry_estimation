@@ -74,7 +74,6 @@ def map_match_mapbox(gps_data):
         corr = []
         map_matched.extend([tp["location"] for tp in resp["tracepoints"]])
     save_data(map_matched, "MapMatched.json")
-    print("Done. Saved in on MapMatched.json")
     return [{"lon": pt[0], "lat": pt[1]} for pt in map_matched]
     # return map_matched
 
@@ -144,6 +143,23 @@ def get_gps_osm_mapping(matched_gps_data, osm_data):
     return tagged_coords
 
 
+def hydrate_coords(tagged_coords, osm_data):
+    """Return the tagged coords with the annotations
+    """
+    # pprint(len(list(osm_data.node_way_mapping.keys())))
+
+    hydrated_coords = []
+    # print(way_data["12275517"])
+    for t_coord in tagged_coords:
+        _id = min(t_coord["osm_node_ids"], key=lambda x: x[1])
+        _way_ids = osm_data.node_way_mapping[_id]
+        ann = {}
+        for way_id in _way_ids:
+            # pprint(osm_data.way_data[way_id]["tag"])
+            ann[way_id] = osm_data.way_data[way_id]["tag"]
+        t_coord["tags"] = ann
+    save_data(tagged_coords, "hydrated_coords.json")
+
 
 if __name__ == "__main__":
 
@@ -155,9 +171,16 @@ if __name__ == "__main__":
 
     # Process GPS Data
     gps_data = preprocess_gps_data()
-    matched_gps_data = map_match_mapbox(gps_data)
     # pprint(matched_gps_data[:1])
-    # pprint(osm_data.node_data[:1])
+
+    matched_gps_data = map_match_mapbox(gps_data)
 
     # Tag the GPS coords with osm nodes, ie map gps coords with osm nodes
-    tagged_coords = get_gps_osm_mapping(matched_gps_data, osm_data)
+    if os.path.exists(os.path.join(os.environ["OUTPUT_DIR"], "tagged_coords.json")):
+        with open("./outputs/tagged_coords.json") as _file:
+            tagged_coords = json.load(_file)
+    else:
+        tagged_coords = get_gps_osm_mapping(matched_gps_data, osm_data)
+
+    # Hydrate tagged gps coords with metadata from WAYs (OSM Model)
+    hydrate_coords(tagged_coords, osm_data)
