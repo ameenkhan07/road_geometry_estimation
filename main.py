@@ -123,13 +123,13 @@ def get_gps_osm_mapping(matched_gps_data, osm_data):
     for gps_coord in tqdm(matched_gps_data):
         MIN_DIST, MIN_ID = 20, 0
         min_dict = {}
-        for osm_coord in osm_data.node_data:
-            if osm_coord["id"] in osm_data.highway_nodes:
+        for osm_id, osm_value in osm_data.node_data.items():
+            if osm_id in osm_data.highway_nodes:
                 coords_1 = (gps_coord["lat"], gps_coord["lon"])
-                coords_2 = (osm_coord["lat"], osm_coord["lon"])
+                coords_2 = (osm_value["lat"], osm_value["lon"])
                 dist = geopy.distance.distance(coords_1, coords_2).meters
                 if dist < MIN_DIST:
-                    min_dict[osm_coord["id"]] = dist
+                    min_dict[osm_id] = dist
         if min_dict:
             tagged_coords.append(
                 {

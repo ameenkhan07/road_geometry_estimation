@@ -13,8 +13,8 @@ class OSM_DATA_MODEL:
     """
 
     def __init__(self):
-        self.node_data = []
-        self.way_data = []
+        self.node_data = {}
+        self.way_data = {}
         self.node_fields = ["@id", "@timestamp", "@lat", "@lon", "tag"]
         self.way_fields = ["@id", "@timestamp", "nd", "tag"]
         self.fields = ["@lat", "@lon", "@id", "nd"]
@@ -49,7 +49,7 @@ class OSM_DATA_MODEL:
                     temp["tag"] = {t["@k"]: t["@v"] for t in temp["tag"]}
                 if isinstance(temp["tag"], OrderedDict):
                     temp["tag"] = {temp["tag"]["@k"]: temp["tag"]["@v"]}
-            self.node_data.append(temp)
+            self.node_data[temp["id"]] = temp
 
     def _format_way_data(self, way_data):
         """Formats the "WAY" element of OSM
@@ -66,16 +66,16 @@ class OSM_DATA_MODEL:
                 if isinstance(temp["tag"], OrderedDict):
                     temp["tag"] = {temp["tag"]["@k"]: temp["tag"]["@v"]}
                 self.way_tags.update(temp["tag"].keys())
-            self.way_data.append(temp)
+            self.way_data[temp["id"]] = temp
 
     def set_node_way_mapping(self):
         """Generates a node_id->way_id mapping, where a node_id can
         belong to multiple way_id
         Return: None, stores the mapping to the data model
         """
-        for way in self.way_data:
-            for n_id in way["node_id"]:
-                self.node_way_mapping[n_id].append(way["id"])
+        for way_id, way_value in self.way_data.items():
+            for n_id in way_value["node_id"]:
+                self.node_way_mapping[n_id].append(way_id)
 
     def set_highway_node_mapping(self):
         """Create a set of nodes belonging to drivable highways
@@ -91,19 +91,20 @@ class OSM_DATA_MODEL:
             "elevator",
             "cycleway",
         ]
-        for way in self.way_data:
+        for way_id, way_value in self.way_data.items():
             if (
-                "tag" in way.keys()
-                and "highway" in way["tag"].keys()
-                and way["tag"]["highway"] not in exclude_highway_types
+                "tag" in way_value.keys()
+                and "highway" in way_value["tag"].keys()
+                and way_value["tag"]["highway"] not in exclude_highway_types
             ):
-                self.highway_nodes.update(way["node_id"])
+                self.highway_nodes.update(way_value["node_id"])
 
 
 if __name__ == "__main__":
 
     osm = OSM_DATA_MODEL()
-    # pprint(osm.node_data[:10])
-    # pprint(sm.way_data[:10])
-    osm.set_node_way_mapping()
-    osm.set_highway_node_mapping()
+
+    pprint({k: osm.node_data[k] for k in list(osm.node_data.keys())[:10]})
+    pprint({k: osm.way_data[k] for k in list(osm.way_data.keys())[:10]})
+    pprint(len(list(osm.node_way_mapping.keys())))
+    pprint(len(osm.highway_nodes))
