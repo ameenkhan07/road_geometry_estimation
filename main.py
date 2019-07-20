@@ -11,7 +11,7 @@ from osm import OSM_DATA_MODEL
 
 CONFIG = "config.json"
 GPS_FILE = "./data/gps.txt"
-OUTPUT = "./outputs/"
+os.environ["OUTPUT_DIR"] = "./outputs/"
 # GRAPHHOPPER_MAP_MATCHING_URL = https://graphhopper.com/api/1/match?vehicle
 
 
@@ -61,7 +61,8 @@ def map_match_mapbox(gps_data):
     params = {"access_token": os.environ["MAPBOX_ACCESS_TOKEN"]}
     batch_size = len(gps_data) // 100
     map_matched = []
-    for i in range(batch_size + 1):
+    print("Getting MapMatched Coordinates ...")
+    for i in tqdm(range(batch_size + 1)):
         st = i * 100
         payload = {
             "coordinates": ";".join(
@@ -72,7 +73,8 @@ def map_match_mapbox(gps_data):
         resp = resp.json()
         corr = []
         map_matched.extend([tp["location"] for tp in resp["tracepoints"]])
-    save_data(OUTPUT, map_matched, "corrected.json")
+    save_data(map_matched, "MapMatched.json")
+    print("Done. Saved in on MapMatched.json")
     return [{"lon": pt[0], "lat": pt[1]} for pt in map_matched]
     # return map_matched
 
@@ -110,7 +112,7 @@ def map_match_mapbox_v4(gps_data):
         # Plot points on Static Map
         # generate_mapbox_static_maps(corr, i)
 
-    save_data(OUTPUT, corrected, "corrected_v4.json")
+    save_data(corrected, "corrected_v4.json")
     return corrected
 
 
@@ -138,20 +140,21 @@ def get_gps_osm_mapping(matched_gps_data, osm_data):
             )
 
     print("TAGGED COORDINATES : ", len(tagged_coords))
-    save_data(OUTPUT, tagged_coords, "tagged_coords.json")
+    save_data(tagged_coords, "tagged_coords.json")
     return tagged_coords
 
-    print("Compatible COORDINATES : ", len(compatible_coords))
-    save_data(OUTPUT, compatible_coords, "compatible_coords.json")
 
 
 if __name__ == "__main__":
 
     set_access_token()
-    osm_data = OSM_DATA_MODEL()
 
+    # Build & Save OSM Data
+    osm_data = OSM_DATA_MODEL()
+    save_data(osm_data, "OSM_DATA_MODEL", True)
+
+    # Process GPS Data
     gps_data = preprocess_gps_data()
-    # matched_gp_data = map_match_mapbox_v4(gps_data)
     matched_gps_data = map_match_mapbox(gps_data)
     # pprint(matched_gps_data[:1])
     # pprint(osm_data.node_data[:1])
