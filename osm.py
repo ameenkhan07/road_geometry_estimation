@@ -15,6 +15,7 @@ class OSM_DATA_MODEL:
     def __init__(self):
         self.node_data = {}
         self.way_data = {}
+        self.relation_data = []
         self.node_fields = ["@id", "@timestamp", "@lat", "@lon", "tag"]
         self.way_fields = ["@id", "@timestamp", "nd", "tag"]
         self.fields = ["@lat", "@lon", "@id", "nd"]
@@ -32,6 +33,7 @@ class OSM_DATA_MODEL:
             doc = xmltodict.parse(fd.read())
             self._format_node_data(doc["osm"]["node"])
             self._format_way_data(doc["osm"]["way"])
+            self._format_relation_data(doc["osm"]["relation"])
         self.set_node_way_mapping()
         self.set_highway_node_mapping()
 
@@ -67,6 +69,13 @@ class OSM_DATA_MODEL:
                     temp["tag"] = {temp["tag"]["@k"]: temp["tag"]["@v"]}
                 self.way_tags.update(temp["tag"].keys())
             self.way_data[temp["id"]] = temp
+
+    def _format_relation_data(self, relation_data):
+        """Formats the "NODE" element of OSM
+        """
+        for row in relation_data:
+            temp = {k.lstrip("@a"): v for k, v in row.items()}
+            self.relation_data.append(temp)
 
     def set_node_way_mapping(self):
         """Generates a node_id->way_id mapping, where a node_id can
@@ -108,3 +117,4 @@ if __name__ == "__main__":
     pprint({k: osm.way_data[k] for k in list(osm.way_data.keys())[:10]})
     pprint(len(list(osm.node_way_mapping.keys())))
     pprint(len(osm.highway_nodes))
+    save_data(list(osm.highway_nodes), "highway_nodes.json")
