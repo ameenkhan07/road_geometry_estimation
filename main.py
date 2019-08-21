@@ -46,12 +46,13 @@ def generate_mapbox_static_maps(data, suffix):
     The data should be in GeoJSON format
     """
     # Remove unrequired values, to keep the data light for map generation
-    del data["properties"]["matchedPoints"]
-    del data["properties"]["indices"]
+    if "matchedPoints" in data["properties"]:
+        del data["properties"]["matchedPoints"]
+        del data["properties"]["indices"]
     static_map = Static(access_token=os.environ["MAPBOX_ACCESS_TOKEN"])
     response = static_map.image("mapbox.streets", features=data)
     # print("StaticMap", response.status_code)
-    save_map_imgs(OUTPUT, suffix, response.content)
+    save_map_imgs(suffix, response.content)
 
 
 def map_match_mapbox(gps_data):
@@ -109,7 +110,8 @@ def map_match_mapbox_v4(gps_data):
         corrected.extend(corr["geometry"]["coordinates"])
 
         # Plot points on Static Map
-        # generate_mapbox_static_maps(corr, i)
+        generate_mapbox_static_maps(corr, i)
+        # generate_mapbox_static_maps(line, i)
 
     save_data(corrected, "corrected_v4.json")
     return corrected
@@ -149,7 +151,6 @@ def hydrate_coords(tagged_coords, osm_data):
     # pprint(len(list(osm_data.node_way_mapping.keys())))
 
     hydrated_coords = []
-    # print(way_data["12275517"])
     for t_coord in tagged_coords:
         _id = min(t_coord["osm_node_ids"], key=lambda x: x[1])
         _way_ids = osm_data.node_way_mapping[_id]
@@ -158,6 +159,8 @@ def hydrate_coords(tagged_coords, osm_data):
             # pprint(osm_data.way_data[way_id]["tag"])
             ann[way_id] = osm_data.way_data[way_id]["tag"]
         t_coord["tags"] = ann
+        t_coord["tags"]["_id"] = _id
+        t_coord["tags"]["_id_way_mapping"] = _way_ids
     save_data(tagged_coords, "hydrated_coords.json")
 
 
@@ -173,6 +176,7 @@ if __name__ == "__main__":
     gps_data = preprocess_gps_data()
     # pprint(matched_gps_data[:1])
 
+    # matched_gps_data = map_match_mapbox_v4(gps_data)
     matched_gps_data = map_match_mapbox(gps_data)
 
     # Tag the GPS coords with osm nodes, ie map gps coords with osm nodes
