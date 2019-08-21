@@ -18,7 +18,8 @@ def utc_to_epoch(timestamp: str) -> int:
     return int(time.mktime(time.strptime(timestamp, pattern)))
 
 
-def save_map_imgs(output_dir, suffix, data):
+def save_map_imgs(suffix, data):
+    output_dir = os.environ["OUTPUT_DIR"]
     filename = output_dir + "map_" + str(suffix) + "_.png"
     with open(filename, "wb") as output:
         _ = output.write(data)
@@ -34,3 +35,14 @@ def save_data(data, filename, obj=False):
         with open(filename, "w") as outfile:
             json.dump(data, outfile, indent=4)
 
+
+def load_data(filename, obj=False):
+    output_dir = os.environ["OUTPUT_DIR"]
+    filename = output_dir + filename
+    if obj:
+        with open(filename, "rb") as infile:
+            res = pickle.load(data, infile)
+    else:
+        with open(filename, "r") as infile:
+            res = json.load(data, infile)
+    return res
